@@ -1,44 +1,23 @@
 
 ## About
 
-dcm_qa is a simple DICOM to NIfTI validator script and dataset. The DICOM format is the popular standard for medical images, [but it is very complicated](https://github.com/jonclayden/divest), so most scientific tools only support the simpler [NIfTI](https://brainder.org/2012/09/23/the-nifti-file-format/) format. Therefore, scientists rely on accurate conversion of DICOM images to NIfTI. The provided DICOM dataset includes images that exhibit various features such as variation in [TotalReadoutTime](https://github.com/rordenlab/dcm2niix/issues/98), Slice Orientation and [Transfer Syntax](https://www.nitrc.org/plugins/mwiki/index.php/dcm2nii:MainPage#Transfer_Syntaxes_and_Compressed_Images) that might disrupt conversion (specific features are described in the text files). The current code validates [dcm2niix](https://github.com/rordenlab/dcm2niix), but could be easily adapted for other tools.
+Siemens software can derive several important measures from CT Perfusion scans, including
+Cerebral Blood Volume (CBV), Cerebral Blood Flow (CBF) and Time to Drain (TTD). However, the resulting DICOM images are saved as for display purposes only, which makes it difficult to conduct research with these images. This repository outlines a method for converting these DICOM images into the scientific NIfTI format for exploratory analyses. These methods are obviously focused on research, and should not be used for clinical purposes. The image below shows a CBV (upper left) and TTD (upper right) image from a Siemens scanner. There are several issues we must overcome to analyze these images.
 
-This validator script converts DICOM images in the "In" folders and saves the results in the "Out" folder. It then reports any differences between the "Out" folder and the "Ref" folder of reference files. It will report ANY differences between these files. This allows the script to check both [NIfTI](https://brainder.org/2012/09/23/the-nifti-file-format/) and [BIDS](http://bids.neuroimaging.io) format files. Note that just because there is a difference does not mean a conversion is incorrect. For example, the BIDS file contains the version of dcm2niix used for conversion, and one expects this to change with new versions. What this script does is report ALL changes, and the user can determine if they reflect regressions. For example, here is an example of a report where a different compiler (GCC vs CLANG) was used to generate dcm2niix:
+![Example CTP images](input.png)
 
-```
---- /Users/rorden/dcm_qa/Out/sag_int_36sl_21.json	2017-06-21 12:36:48.000000000 -0400
-+++ /Users/rorden/dcm_qa/Ref/sag_int_36sl_21.json	2017-06-21 09:11:20.000000000 -0400
-@@ -26,5 +26,5 @@
- 	"TrueEchoSpacing": 0.000559996,
- 	"PhaseEncodingDirection": "i-",
- 	"ConversionSoftware": "dcm2niix",
--	"ConversionSoftwareVersion": "v1.0.20170621 GCC6.1.0"
-+	"ConversionSoftwareVersion": "v1.0.20170621 Clang7.3.0"
- }
-```
+ - While visual inspection reveals the images are calibrated from 0..100 and 0..15, no information in the DICOM file allows one to determine the image range automatically.
+ - Differences in values are shown using a custom Red, Green, Blue (RGB) color scheme with 254 distinct colors (shown as a gradient on the right of the image). There is no simple formula to convert the red, green and blue values of the image to the calibrated scalar range. Note that the actual images include more than 254 distinct colors, interpolating between values in the colorbar.
+ - The DICOM images provide no spatial information, such as the resolution of the images, or even which side is the left.
+ - The colorbars are burnt in to the image. These may disrupt any normalization.
+ - Voxels that do not meet a threshold aree set to zero, with no partial volume effects. Therefore, we must use nearest-neighbor interpolation when reslicing these images. There is no signal from the scalp or other tissues that can guide normalization. 
 
-## License
+The scripts of this repository require Matlab and [SPM12](https://www.fil.ion.ucl.ac.uk/spm/software/spm12/). The script rgb2scalar.m is used to determine the conversion of the RGB values to a scalar range. It can read the color schemes (cbfd.png, cbvd.png, ttd.png) and genrates the plots shown in the lower panels of the figure above. The findings of this script have been incorporated into the convert_ctp script.
 
-This software and images are open source and were acquired by Chris Rorden. The the code is covered by the [2-clause BSD license](https://opensource.org/licenses/BSD-2-Clause) and released in June 2017.
+To convert Siemens CT images, one must complete the following steps.
 
-## Versions
-
-21-June-2017
- - Initial public release
-
-## Running
-
-Assuming that the executable dcm2niix is in your path, you should be able to simply run the script `batch.sh` from the terminal.
-
-If you have problems you can edit the first few lines of the `batch.sh` script so that `basedir` reports the explicit location of the `dcm_qa` folder (by default this is assumed to be the folder containing the script) on your computer and `exenam` reports the explicit location of dcm2niix (by default it is assumed to be in your path). Also, make sure the script is executable (`chmod +x batch.sh`). Then run the script.
-
-## Updating dcm_qa
-
-This software reports when there are any changes in behavior of the software. However, some of these changes might be improvements. For example, software which supports future BIDS tags will report differences relative to the prior solutions reported in dcm_qa. Once the solutions have been verified as correct, one needs to update both dcm_qa and the software that invokes dcm_qa. For example, with dcm2niix we can update it to use the latest version of dcm_qa with this script:
-
-```
-cd dcm2niix
-git submodule update --remote
-git commit -am 'Update dcm_qa submodule.'
-git push
-```
+ 1. Convert DICOM images to NIfTI format using [dcm2niix](https://github.com/rordenlab/dcm2niix) (either from the command line or using the graphical interface of [MRIcroGL](https://github.com/rordenlab/MRIcroGL12)).
+ 2. Run the Matlab script convert_ctp. It will ask you to run select the image and the a graphical display asks you to provide a few details.
+ 
+![Graphical user interface](gui.png)
+ 
